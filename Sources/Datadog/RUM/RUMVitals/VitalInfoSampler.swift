@@ -49,10 +49,7 @@ internal final class VitalInfoSampler {
         memoryReader: SamplingBasedVitalReader,
         refreshRateReader: ContinuousVitalReader,
         frequency: TimeInterval = VitalInfoSampler.frequency,
-        @available (iOS 10.3, *)
-        maximumRefreshRate: Double = Double(UIScreen.main.maximumFramesPerSecond),
-        @available (iOS, introduced: 10.0, deprecated: 10.3)
-        maximumRefreshRate: Double = 60
+        maximumRefreshRate: Double = defaultRefresh()
         
     ) {
         self.cpuReader = cpuReader
@@ -78,6 +75,14 @@ internal final class VitalInfoSampler {
     deinit {
         timer?.invalidate()
         refreshRateReader.unregister(refreshRatePublisher)
+    }
+    
+    private static func defaultRefresh() -> Double {
+        if #available(iOS 10.3, *) {
+            return Double(UIScreen.main.maximumFramesPerSecond)
+        } else {
+            return 60
+        }
     }
 
     private func takeSample() {
