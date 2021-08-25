@@ -49,7 +49,11 @@ internal final class VitalInfoSampler {
         memoryReader: SamplingBasedVitalReader,
         refreshRateReader: ContinuousVitalReader,
         frequency: TimeInterval = VitalInfoSampler.frequency,
-        maximumRefreshRate: Double = Double(UIScreen.main.maximumFramesPerSecond)
+        @available (iOS 10.3, *)
+        maximumRefreshRate: Double = Double(UIScreen.main.maximumFramesPerSecond),
+        @available (iOS, introduced: 10.0, deprecated: 10.3)
+        maximumRefreshRate: Double = 60
+        
     ) {
         self.cpuReader = cpuReader
         self.memoryReader = memoryReader
