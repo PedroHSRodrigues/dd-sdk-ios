@@ -241,7 +241,12 @@ extension BinaryImageInfo {
 
         self.uuid = imageUUID
         self.imageName = URL(string: imagePath)?.lastPathComponent
-        self.isSystemImage = !imagePath.contains("/Bundle/Application/")
+
+        #if targetEnvironment(simulator)
+        self.isSystemImage = Self.isPathSystemImageInSimulator(imagePath)
+        #else
+        self.isSystemImage = Self.isPathSystemImageInDevice(imagePath)
+        #endif
 
         if let codeType = imageInfo.codeType {
             self.codeType = CodeType(from: codeType)
@@ -252,6 +257,17 @@ extension BinaryImageInfo {
 
         self.imageBaseAddress = imageInfo.imageBaseAddress
         self.imageSize = imageInfo.imageSize
+    }
+
+    static func isPathSystemImageInSimulator(_ path: String) -> Bool {
+        // in simulator, example system image path: ~/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/...
+        return path.contains("/Contents/Developer/Platforms/")
+    }
+
+    static func isPathSystemImageInDevice(_ path: String) -> Bool {
+        // in device, example user image path: .../containers/Bundle/Application/0000/Example.app/Frameworks/...
+        let isUserImage = path.contains("/Bundle/Application/")
+        return !isUserImage
     }
 }
 

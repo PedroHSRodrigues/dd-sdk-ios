@@ -92,6 +92,7 @@ class RUMViewScopeTests: XCTestCase {
         XCTAssertValidRumUUID(event.model.action.id)
         XCTAssertEqual(event.model.action.type, .applicationStart)
         XCTAssertEqual(event.model.action.loadingTime, 2_000_000_000) // 2e+9 ns
+        XCTAssertEqual(event.model.dd.session?.plan, .plan1, "All RUM events should use RUM Lite plan")
     }
 
     func testWhenInitialViewIsStarted_itSendsViewUpdateEvent() throws {
@@ -129,6 +130,7 @@ class RUMViewScopeTests: XCTestCase {
         XCTAssertEqual(event.model.view.resource.count, 0)
         XCTAssertEqual(event.model.dd.documentVersion, 1)
         XCTAssertEqual(event.attributes as? [String: String], ["foo": "bar"])
+        XCTAssertEqual(event.model.dd.session?.plan, .plan1, "All RUM events should use RUM Lite plan")
     }
 
     func testWhenViewIsStarted_itSendsViewUpdateEvent() throws {
@@ -433,6 +435,10 @@ class RUMViewScopeTests: XCTestCase {
             customTimings: [:],
             startTime: Date()
         )
+
+        let logOutput = LogOutputMock()
+        userLogger = .mockWith(logOutput: logOutput)
+
         XCTAssertTrue(
             scope.process(command: RUMStartViewCommand.mockWith(identity: mockView))
         )
@@ -445,10 +451,17 @@ class RUMViewScopeTests: XCTestCase {
         XCTAssertNotNil(scope.userActionScope)
         XCTAssertEqual(scope.userActionScope?.name, actionName)
 
+        let secondAction = RUMStartUserActionCommand.mockWith(actionType: .swipe, name: .mockRandom())
         XCTAssertTrue(
-            scope.process(command: RUMStartUserActionCommand.mockWith(actionType: .swipe, name: .mockRandom()))
+            scope.process(command: secondAction)
         )
         XCTAssertEqual(scope.userActionScope?.name, actionName, "View should ignore the next (only non-custom) UA if one is pending.")
+        XCTAssertEqual(
+            logOutput.recordedLog?.message,
+            """
+            RUM Action '\(secondAction.actionType)' on '\(secondAction.name)' was dropped, because another action is still active for the same view.
+            """
+        )
 
         XCTAssertTrue(
             scope.process(command: RUMAddUserActionCommand.mockWith(actionType: .custom, name: .mockRandom()))
@@ -479,6 +492,10 @@ class RUMViewScopeTests: XCTestCase {
             customTimings: [:],
             startTime: currentTime
         )
+
+        let logOutput = LogOutputMock()
+        userLogger = .mockWith(logOutput: logOutput)
+
         XCTAssertTrue(
             scope.process(command: RUMStartViewCommand.mockWith(time: currentTime, identity: mockView))
         )
@@ -493,10 +510,17 @@ class RUMViewScopeTests: XCTestCase {
         XCTAssertNotNil(scope.userActionScope)
         XCTAssertEqual(scope.userActionScope?.name, actionName)
 
+        let secondAction = RUMAddUserActionCommand.mockWith(time: currentTime, actionType: .tap, name: .mockRandom())
         XCTAssertTrue(
-            scope.process(command: RUMAddUserActionCommand.mockWith(time: currentTime, actionType: .tap, name: .mockRandom()))
+            scope.process(command: secondAction)
         )
         XCTAssertEqual(scope.userActionScope?.name, actionName, "View should ignore the next (only non-custom) UA if one is pending.")
+        XCTAssertEqual(
+            logOutput.recordedLog?.message,
+            """
+            RUM Action '\(secondAction.actionType)' on '\(secondAction.name)' was dropped, because another action is still active for the same view.
+            """
+        )
 
         XCTAssertTrue(
             scope.process(command: RUMAddUserActionCommand.mockWith(actionType: .custom, name: .mockRandom()))
@@ -559,6 +583,7 @@ class RUMViewScopeTests: XCTestCase {
         XCTAssertNil(error.model.error.resource)
         XCTAssertNil(error.model.action)
         XCTAssertEqual(error.attributes as? [String: String], ["foo": "bar"])
+        XCTAssertEqual(error.model.dd.session?.plan, .plan1, "All RUM events should use RUM Lite plan")
 
         let viewUpdate = try XCTUnwrap(output.recordedEvents(ofType: RUMEvent<RUMViewEvent>.self).last)
         XCTAssertEqual(viewUpdate.model.view.error.count, 1)

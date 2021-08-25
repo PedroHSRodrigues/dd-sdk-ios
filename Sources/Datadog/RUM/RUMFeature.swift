@@ -37,6 +37,10 @@ internal final class RUMFeature {
     let carrierInfoProvider: CarrierInfoProviderType
     let launchTimeProvider: LaunchTimeProviderType
 
+    let vitalCPUReader: SamplingBasedVitalReader // VitalCPUReader
+    let vitalMemoryReader: SamplingBasedVitalReader // VitalMemoryReader
+    let vitalRefreshRateReader: ContinuousVitalReader // VitalRefreshRateReader
+
     // MARK: - Components
 
     static let featureName = "rum"
@@ -76,19 +80,9 @@ internal final class RUMFeature {
         return FeatureUpload(
             featureName: RUMFeature.featureName,
             storage: storage,
-            uploadHTTPHeaders: HTTPHeaders(
-                headers: [
-                    .contentTypeHeader(contentType: .textPlainUTF8),
-                    .userAgentHeader(
-                        appName: configuration.common.applicationName,
-                        appVersion: configuration.common.applicationVersion,
-                        device: commonDependencies.mobileDevice
-                    )
-                ]
-            ),
-            uploadURLProvider: UploadURLProvider(
-                urlWithClientToken: configuration.uploadURLWithClientToken,
-                queryItemProviders: [
+            requestBuilder: RequestBuilder(
+                url: configuration.uploadURL,
+                queryItems: [
                     .ddsource(source: configuration.common.source),
                     .ddtags(
                         tags: [
@@ -98,6 +92,18 @@ internal final class RUMFeature {
                             "env:\(configuration.common.environment)"
                         ]
                     )
+                ],
+                headers: [
+                    .contentTypeHeader(contentType: .textPlainUTF8),
+                    .userAgentHeader(
+                        appName: configuration.common.applicationName,
+                        appVersion: configuration.common.applicationVersion,
+                        device: commonDependencies.mobileDevice
+                    ),
+                    .ddAPIKeyHeader(clientToken: configuration.clientToken),
+                    .ddEVPOriginHeader(source: configuration.common.source),
+                    .ddEVPOriginVersionHeader(),
+                    .ddRequestIDHeader(),
                 ]
             ),
             commonDependencies: commonDependencies,
@@ -134,7 +140,10 @@ internal final class RUMFeature {
             storage: storage,
             upload: upload,
             configuration: configuration,
-            commonDependencies: commonDependencies
+            commonDependencies: commonDependencies,
+            vitalCPUReader: VitalCPUReader(),
+            vitalMemoryReader: VitalMemoryReader(),
+            vitalRefreshRateReader: VitalRefreshRateReader()
         )
     }
 
@@ -143,7 +152,10 @@ internal final class RUMFeature {
         storage: FeatureStorage,
         upload: FeatureUpload,
         configuration: FeaturesConfiguration.RUM,
-        commonDependencies: FeaturesCommonDependencies
+        commonDependencies: FeaturesCommonDependencies,
+        vitalCPUReader: SamplingBasedVitalReader,
+        vitalMemoryReader: SamplingBasedVitalReader,
+        vitalRefreshRateReader: ContinuousVitalReader
     ) {
         // Configuration
         self.configuration = configuration
@@ -160,6 +172,10 @@ internal final class RUMFeature {
         self.eventsMapper = eventsMapper
         self.storage = storage
         self.upload = upload
+
+        self.vitalCPUReader = vitalCPUReader
+        self.vitalMemoryReader = vitalMemoryReader
+        self.vitalRefreshRateReader = vitalRefreshRateReader
     }
 
 #if DD_SDK_COMPILED_FOR_TESTING

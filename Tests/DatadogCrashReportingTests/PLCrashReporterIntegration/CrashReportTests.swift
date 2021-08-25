@@ -205,6 +205,37 @@ class CrashReportTests: XCTestCase {
         XCTAssertEqual(threadInfo.stackFrames.count, mockStackFrames.count)
     }
 
+    private let systemImagePaths_device = [
+        "/System/Library/PrivateFrameworks/UIKitCore.framework/UIKitCore",
+        "/usr/lib/system/libdyld.dylib"
+    ]
+    private let systemImagePaths_simulator = [
+        "/Users/john.appleseed/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS.simruntime/Contents/Resources/RuntimeRoot/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation"
+    ]
+    private let userImagePaths_device = [
+        "/private/var/containers/Bundle/Application/0000/Example.app/Example",
+        "/private/var/containers/Bundle/Application/0000/Example.app/Frameworks/DatadogCrashReporting.framework/DatadogCrashReporting"
+    ]
+    private let userImagePaths_simulator = [
+        "/Users/john.appleseed/Library/Developer/CoreSimulator/Devices/0000/data/Containers/Bundle/Application/0000/Example.app/Example",
+        "/Users/john.appleseed/Library/Developer/Xcode/DerivedData/Datadog-abcd/Build/Products/Release-iphonesimulator/DatadogCrashReporting.framework/DatadogCrashReporting"
+    ]
+
+    func testItDetectsSystemImages() throws {
+        for systemImagePath in systemImagePaths_device {
+            XCTAssertTrue(BinaryImageInfo.isPathSystemImageInDevice(systemImagePath), "\(systemImagePath) is a system image")
+        }
+        for systemImagePath in systemImagePaths_simulator {
+            XCTAssertTrue(BinaryImageInfo.isPathSystemImageInSimulator(systemImagePath), "\(systemImagePath) is a system image")
+        }
+        for userImagePath in userImagePaths_device {
+            XCTAssertFalse(BinaryImageInfo.isPathSystemImageInDevice(userImagePath), "\(userImagePath) is an user image")
+        }
+        for userImagePath in userImagePaths_simulator {
+            XCTAssertFalse(BinaryImageInfo.isPathSystemImageInSimulator(userImagePath), "\(userImagePath) is an user image")
+        }
+    }
+
     func testItReadsBinaryImageInfo() throws {
         func mock(with imagePath: URL) -> PLCrashReportMock.BinaryImageInfo {
             let mock = PLCrashReportMock.BinaryImageInfo()
@@ -220,8 +251,13 @@ class CrashReportTests: XCTestCase {
         }
 
         // Given
-        let systemImagePath: URL = .mockRandomPath()
-        let userImagePath: URL = .mockRandomPath(containing: ["Bundle", "Application"])
+        #if targetEnvironment(simulator)
+        let systemImagePath = URL(string: systemImagePaths_simulator.randomElement()!)!
+        let userImagePath = URL(string: userImagePaths_simulator.randomElement()!)!
+        #else
+        let systemImagePath = URL(string: systemImagePaths_device.randomElement()!)!
+        let userImagePath = URL(string: userImagePaths_device.randomElement()!)!
+        #endif
 
         let mockSystemImage = mock(with: systemImagePath)
         let mockUserImage = mock(with: userImagePath)
@@ -233,14 +269,14 @@ class CrashReportTests: XCTestCase {
         // Then
         XCTAssertEqual(systemBinaryImageInfo.uuid, mockSystemImage.mockImageUUID)
         XCTAssertEqual(systemBinaryImageInfo.imageName, systemImagePath.lastPathComponent)
-        XCTAssertTrue(systemBinaryImageInfo.isSystemImage)
+        XCTAssertTrue(systemBinaryImageInfo.isSystemImage, "\(systemImagePath) is a system image")
         XCTAssertEqual(systemBinaryImageInfo.imageBaseAddress, mockSystemImage.mockImageBaseAddress)
         XCTAssertEqual(systemBinaryImageInfo.imageSize, mockSystemImage.mockImageSize)
         XCTAssertEqual(systemBinaryImageInfo.codeType?.architectureName, "x86_64")
 
         XCTAssertEqual(userBinaryImageInfo.uuid, mockUserImage.mockImageUUID)
         XCTAssertEqual(userBinaryImageInfo.imageName, userImagePath.lastPathComponent)
-        XCTAssertFalse(userBinaryImageInfo.isSystemImage)
+        XCTAssertFalse(userBinaryImageInfo.isSystemImage, "\(userImagePath) is a user image")
         XCTAssertEqual(userBinaryImageInfo.imageBaseAddress, mockUserImage.mockImageBaseAddress)
         XCTAssertEqual(userBinaryImageInfo.imageSize, mockUserImage.mockImageSize)
         XCTAssertEqual(userBinaryImageInfo.codeType?.architectureName, "x86_64")

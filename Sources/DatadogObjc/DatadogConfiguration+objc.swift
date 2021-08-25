@@ -30,13 +30,13 @@ public class DDEndpoint: NSObject {
     public static func us1_fed() -> DDEndpoint { .init(sdkEndpoint: .us1_fed) }
 
     @objc
-    public static func eu() -> DDEndpoint { .init(sdkEndpoint: .eu) }
+    public static func eu() -> DDEndpoint { .init(sdkEndpoint: .eu1) }
 
     @objc
-    public static func us() -> DDEndpoint { .init(sdkEndpoint: .us) }
+    public static func us() -> DDEndpoint { .init(sdkEndpoint: .us1) }
 
     @objc
-    public static func gov() -> DDEndpoint { .init(sdkEndpoint: .gov) }
+    public static func gov() -> DDEndpoint { .init(sdkEndpoint: .us1_fed) }
 }
 
 @objc
@@ -190,12 +190,10 @@ public class DDConfigurationBuilder: NSObject {
         _ = sdkBuilder.enableRUM(enabled)
     }
 
-#if DD_SDK_ENABLE_EXPERIMENTAL_APIS
     @objc
     public func enableCrashReporting(using crashReportingPlugin: DDCrashReportingPluginType) {
         _ = sdkBuilder.enableCrashReporting(using: crashReportingPlugin)
     }
-#endif
 
     @objc
     public func set(endpoint: DDEndpoint) {

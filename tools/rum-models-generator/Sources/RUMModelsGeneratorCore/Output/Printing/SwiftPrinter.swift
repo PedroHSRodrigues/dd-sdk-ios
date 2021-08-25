@@ -178,7 +178,7 @@ public class SwiftPrinter: BasePrinter {
                 writeLine("try \(dynamicProperty.name).forEach {") // dynamic properties are dictionaries
                 indentRight()
                     writeLine("let key = DynamicCodingKey($0)") // dictionary key is used as coding key
-                    writeLine("try dynamicContainer.encode(EncodableValue($1), forKey: key)") // encode value
+                    writeLine("try dynamicContainer.encode(CodableValue($1), forKey: key)") // encode value
                 indentLeft()
                 writeLine("}")
             }
@@ -227,7 +227,11 @@ public class SwiftPrinter: BasePrinter {
 
                 writeLine("try dynamicKeys.forEach { codingKey in")
                 indentRight()
-                writeLine("dictionary[codingKey.stringValue] = try dynamicContainer.decodeIfPresent(CodableValue.self, forKey: codingKey)")
+                // We use `dynamicContainer.decode()` instead of `dynamicContainer.decodeIfPresent()` to not lose
+                // the information of decoded `null` value. Our `CodableValue` implementation recognizes `null` and preserves
+                // it for eventual encoding. This guarantees no difference in serialized payload even if we deserialize it
+                // and encode again.
+                writeLine("dictionary[codingKey.stringValue] = try dynamicContainer.decode(CodableValue.self, forKey: codingKey)")
                 indentLeft()
                 writeLine("}")
 
@@ -288,12 +292,24 @@ public class SwiftPrinter: BasePrinter {
     private func printEnum(_ enumeration: SwiftEnum) throws {
         let implementedProtocols = enumeration.conformance.map { $0.name }
         let conformance = implementedProtocols.isEmpty ? "" : ", \(implementedProtocols.joined(separator: ", "))"
+        let rawValueType: String = try {
+            let firstCase = try enumeration.cases.first.unwrapOrThrow(.illegal("\(enumeration.name) enum has 0 cases"))
+            switch firstCase.rawValue {
+            case .string: return "String"
+            case .integer: return "Int"
+            }
+        }()
 
         printComment(enumeration.comment)
-        writeLine("public enum \(enumeration.name): String\(conformance) {")
+        writeLine("public enum \(enumeration.name): \(rawValueType)\(conformance) {")
         indentRight()
         enumeration.cases.forEach { `case` in
-            writeLine("case \(`case`.label) = \"\(`case`.rawValue)\"")
+            switch `case`.rawValue {
+            case .string(let value):
+                writeLine("case \(`case`.label) = \"\(value)\"")
+            case .integer(let value):
+                writeLine("case \(`case`.label) = \(value)")
+            }
         }
         indentLeft()
         writeLine("}")
