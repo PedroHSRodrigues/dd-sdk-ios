@@ -82,7 +82,10 @@ internal final class InternalMonitoringFeature {
                     .ddEVPOriginHeader(source: configuration.common.source),
                     .ddEVPOriginVersionHeader(),
                     .ddRequestIDHeader(),
-                ]
+                ],
+                // (!) Do not inject monitoring bundle, otherwise the feature will be monitoring itself
+                // leading to infinite processing loops.
+                internalMonitor: nil
             ),
             commonDependencies: commonDependencies,
             // (!) Do not inject monitoring bundle, otherwise the feature will be monitoring itself
@@ -118,7 +121,7 @@ internal final class InternalMonitoringFeature {
 
         // Initialize internal monitor
         let internalLogger = Logger(
-            logBuilder: LogBuilder(
+            logBuilder: LogEventBuilder(
                 applicationVersion: configuration.common.applicationVersion,
                 environment: configuration.sdkEnvironment,
                 serviceName: configuration.sdkServiceName,
@@ -126,7 +129,8 @@ internal final class InternalMonitoringFeature {
                 userInfoProvider: UserInfoProvider(), // no-op to not associate user info with internal logs
                 networkConnectionInfoProvider: commonDependencies.networkConnectionInfoProvider,
                 carrierInfoProvider: commonDependencies.carrierInfoProvider,
-                dateCorrector: commonDependencies.dateCorrector
+                dateCorrector: commonDependencies.dateCorrector,
+                logEventMapper: nil
             ),
             logOutput: LogFileOutput(
                 fileWriter: storage.writer,

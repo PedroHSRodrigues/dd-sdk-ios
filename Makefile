@@ -1,7 +1,7 @@
 all: dependencies xcodeproj-httpservermock templates
 
 # The release version of `dd-sdk-swift-testing` to use for tests instrumentation.
-DD_SDK_SWIFT_TESTING_VERSION = 0.9.4
+DD_SDK_SWIFT_TESTING_VERSION = 1.0.0
 
 define DD_SDK_TESTING_XCCONFIG_CI
 FRAMEWORK_SEARCH_PATHS=$$(inherited) $$(SRCROOT)/../instrumented-tests/DatadogSDKTesting.xcframework/ios-arm64_x86_64-simulator/\n
@@ -20,11 +20,8 @@ define DD_SDK_BASE_XCCONFIG
 // - DD_SDK_COMPILED_FOR_TESTING - conditions the SDK code compiled for testing\n
 SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) DD_SDK_ENABLE_INTERNAL_MONITORING DD_SDK_COMPILED_FOR_TESTING\n
 \n
-// To build only active architecture for all configurations.\n
-// TODO: RUMM-1200 We can perhaps remove this fix when carthage supports pre-build xcframeworks.\n
-//		 The only "problematic" dependency is `CrashReporter.xcframework` which doesn't produce\n
-//		 the `arm64-simulator` architecture when compiled from source. Its pre-build `CrashReporter.xcframework`\n
-//		 available since `1.8.0` contains the `ios-arm64_i386_x86_64-simulator` slice and should link fine in all configurations.\n
+// To build only active architecture for all configurations. This gives us ~10% build time gain\n
+// in targets which do not use 'Debug' configuration.\n
 ONLY_ACTIVE_ARCH = YES\n
 endef
 export DD_SDK_BASE_XCCONFIG
@@ -129,20 +126,6 @@ bump:
 		git add . ; \
 		git commit -m "Bumped version to $$version"; \
 		echo Bumped version to $$version
-
-ship:
-		pod spec lint --allow-warnings DatadogSDK.podspec
-		pod trunk push --allow-warnings --synchronous DatadogSDK.podspec
-		./tools/distribution/make_distro_builds.sh
-ifeq ($$CI, true)
-		@curl -X POST "https://api.bitrise.io/v0.1/apps/$$BITRISE_APP_SLUG/builds" \
- 			-H "accept: application/json" -H  "Content-Type: application/json" \
-			-H  "Authorization: $$BITRISE_PERSONAL_ACCESS_TOKEN" \
- 			-d "{\"build_params\":{\"tag\":\"$$BITRISE_GIT_TAG\",\"workflow_id\":\"tagged_commit_part_2\"},\"hook_info\":{\"type\":\"bitrise\"}}"
-endif
-
-ship_part_2:
-		@./tools/distribution/push_podspecs.sh
 
 dogfood:
 		@cd tools/dogfooding && $(MAKE)
