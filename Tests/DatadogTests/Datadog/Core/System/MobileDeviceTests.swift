@@ -11,10 +11,6 @@ import UIKit
 class MobileDeviceTests: XCTestCase {
     private let notificationCenter = NotificationCenter()
 
-    func testWhenRunningOnMobile_itReturnsDevice() {
-        XCTAssertNotNil(MobileDevice.current)
-    }
-
     func testWhenRunningOnMobile_itUsesUIDeviceInfo() {
         let uiDevice = UIDeviceMock(
             model: "model mock",
@@ -71,7 +67,12 @@ class MobileDeviceTests: XCTestCase {
         )
 
         // Then
-        XCTAssertEqual(mobileDevice.currentBatteryStatus().isLowPowerModeEnabled, !isLowPowerModeEnabled)
+        let expectation = self.expectation(description: "Update `isLowPowerModeEnabled` in `BatteryStatus`")
+        wait(
+            until: { mobileDevice.currentBatteryStatus().isLowPowerModeEnabled == !isLowPowerModeEnabled },
+            andThenFulfill: expectation
+        )
+        waitForExpectations(timeout: 0.5, handler: nil)
     }
 
     func testWhenRunningOnMobile_itTogglesBatteryMonitoring() {

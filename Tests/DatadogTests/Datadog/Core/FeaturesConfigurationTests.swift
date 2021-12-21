@@ -121,6 +121,36 @@ class FeaturesConfigurationTests: XCTestCase {
             }
     }
 
+    func testSource() throws {
+        var configuration = try FeaturesConfiguration(
+            configuration: .mockWith(additionalConfiguration: [:]),
+            appContext: .mockAny()
+        )
+        XCTAssertEqual(configuration.common.source, "ios", "Default `source` must be `ios`")
+
+        let randomSource: String = .mockRandom()
+        configuration = try FeaturesConfiguration(
+            configuration: .mockWith(additionalConfiguration: [CrossPlatformAttributes.ddsource: randomSource]),
+            appContext: .mockAny()
+        )
+        XCTAssertEqual(configuration.common.source, randomSource, "Source can be customized through additional configuration")
+    }
+
+    func testSDKVersion() throws {
+        var configuration = try FeaturesConfiguration(
+            configuration: .mockWith(additionalConfiguration: [:]),
+            appContext: .mockAny()
+        )
+        XCTAssertEqual(configuration.common.sdkVersion, __sdkVersion, "Default `sdkVersion` must be equal to `__sdkVersion`")
+
+        let randomSDKVersion: String = .mockRandom()
+        configuration = try FeaturesConfiguration(
+            configuration: .mockWith(additionalConfiguration: [CrossPlatformAttributes.sdkVersion: randomSDKVersion]),
+            appContext: .mockAny()
+        )
+        XCTAssertEqual(configuration.common.sdkVersion, randomSDKVersion, "SDK version can be customized through additional configuration")
+    }
+
     func testClientToken() throws {
         let clientToken: String = .mockRandom(among: "abcdefgh")
         let configuration = try createConfiguration(clientToken: clientToken)
@@ -373,37 +403,42 @@ class FeaturesConfigurationTests: XCTestCase {
             configuration: .mockWith(
                 rumEnabled: true,
                 rumUIKitViewsPredicate: UIKitRUMViewsPredicateMock(),
-                rumUIKitUserActionsPredicate: nil
+                rumUIKitUserActionsPredicate: nil,
+                rumLongTaskDurationThreshold: nil
             ),
             appContext: .mockAny()
         )
-        XCTAssertNotNil(viewsConfigured.rum!.autoInstrumentation!.uiKitRUMViewsPredicate)
-        XCTAssertNil(viewsConfigured.rum!.autoInstrumentation!.uiKitRUMUserActionsPredicate)
+        XCTAssertNotNil(viewsConfigured.rum!.instrumentation!.uiKitRUMViewsPredicate)
+        XCTAssertNil(viewsConfigured.rum!.instrumentation!.uiKitRUMUserActionsPredicate)
+        XCTAssertNil(viewsConfigured.rum!.instrumentation!.longTaskThreshold)
 
         let actionsConfigured = try FeaturesConfiguration(
             configuration: .mockWith(
                 rumEnabled: true,
                 rumUIKitViewsPredicate: nil,
-                rumUIKitUserActionsPredicate: UIKitRUMUserActionsPredicateMock()
+                rumUIKitUserActionsPredicate: UIKitRUMUserActionsPredicateMock(),
+                rumLongTaskDurationThreshold: nil
             ),
             appContext: .mockAny()
         )
 
-        XCTAssertNotNil(actionsConfigured.rum!.autoInstrumentation!.uiKitRUMUserActionsPredicate)
-        XCTAssertNil(actionsConfigured.rum!.autoInstrumentation!.uiKitRUMViewsPredicate)
+        XCTAssertNotNil(actionsConfigured.rum!.instrumentation!.uiKitRUMUserActionsPredicate)
+        XCTAssertNil(actionsConfigured.rum!.instrumentation!.uiKitRUMViewsPredicate)
+        XCTAssertNil(actionsConfigured.rum!.instrumentation!.longTaskThreshold)
 
-        let viewsAndActionsNotConfigured = try FeaturesConfiguration(
+        let longTaskConfigured = try FeaturesConfiguration(
             configuration: .mockWith(
                 rumEnabled: true,
                 rumUIKitViewsPredicate: nil,
-                rumUIKitUserActionsPredicate: nil
+                rumUIKitUserActionsPredicate: nil,
+                rumLongTaskDurationThreshold: 0.25
             ),
             appContext: .mockAny()
         )
-        XCTAssertNil(
-            viewsAndActionsNotConfigured.rum!.autoInstrumentation,
-            "When neither Views nor Actions are configured, the auto instrumentation config should be `nil`"
-        )
+
+        XCTAssertNotNil(longTaskConfigured.rum!.instrumentation!.longTaskThreshold)
+        XCTAssertNil(longTaskConfigured.rum!.instrumentation!.uiKitRUMViewsPredicate)
+        XCTAssertNil(longTaskConfigured.rum!.instrumentation!.uiKitRUMUserActionsPredicate)
     }
 
     // MARK: - Crash Reporting Configuration Tests
