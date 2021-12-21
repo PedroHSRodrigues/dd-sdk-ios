@@ -74,19 +74,18 @@ internal class MobileDevice {
             }
         )
     }
-    /// Returns current mobile device  if `UIDevice` is available on this platform.
-    /// On other platforms returns `nil`.
-    static var current: MobileDevice {
+
+    convenience init() {
         #if !targetEnvironment(simulator)
         // Real device
-        return MobileDevice(
+        self.init(
             uiDevice: UIDevice.current,
             processInfo: ProcessInfo.processInfo,
             notificationCenter: .default
         )
         #else
         // iOS Simulator - battery monitoring doesn't work on Simulator, so return "always OK" value
-        return MobileDevice(
+        self.init(
             model: UIDevice.current.model,
             osName: UIDevice.current.systemName,
             osVersion: UIDevice.current.systemVersion,
@@ -111,11 +110,9 @@ internal class MobileDevice {
 /// Observes "Low Power Mode" setting changes and provides `isLowPowerModeEnabled` value in a thread-safe manner.
 ///
 /// Note: this was added in https://github.com/DataDog/dd-sdk-ios/issues/609 where `ProcessInfo.isLowPowerModeEnabled` was considered
-/// not thread-safe on iOS 15. With this monitor, we change from pulling to push model for reading this property. Now, it will never be read simultaneously
-/// by multiple SDK threads - instead it will be read only once after LPM setting change and bridged to other threads through thread-safe `ValuePublisher`.
-///
-/// This should mitigate the crash originating in our SDK. We can't however prevent other code (e.g. application code) from reading this value simultaneously
-/// and causing a deadlock with SDK reads - ref. radar raised with Apple: FB9661108.
+/// not thread-safe on iOS 15. We suspect a bug present in iOS 15, where accessing `processInfo.isLowPowerModeEnabled` within a pending
+/// `.NSProcessInfoPowerStateDidChange` completion handler can sometimes lead to `_os_unfair_lock_recursive_abort` crash. The issue
+/// was reported to Apple, ref.: https://openradar.appspot.com/FB9741207
 private final class LowPowerModeMonitor {
     var isLowPowerModeEnabled: Bool {
         publisher.currentValue
@@ -137,7 +134,15 @@ private final class LowPowerModeMonitor {
                 guard let processInfo = notification.object as? ProcessInfo else {
                     return
                 }
-                self?.publisher.publishAsync(processInfo.isLowPowerModeEnabled)
+
+                // We suspect an iOS 15 bug (ref.: https://openradar.appspot.com/FB9741207) which leads to rare
+                // `_os_unfair_lock_recursive_abort` crash when `processInfo.isLowPowerModeEnabled` is accessed
+                // directly in the notification handler. As a workaround, we defer its access to the next run loop
+                // where underlying lock should be already released.
+                OperationQueue.main.addOperation {
+                    let nextValue = processInfo.isLowPowerModeEnabled
+                    self?.publisher.publishAsync(nextValue)
+                }
             }
     }
 

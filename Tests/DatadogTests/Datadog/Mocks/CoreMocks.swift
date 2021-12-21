@@ -52,6 +52,7 @@ extension Datadog.Configuration {
         rumSessionsSamplingRate: Float = 100.0,
         rumUIKitViewsPredicate: UIKitRUMViewsPredicate? = nil,
         rumUIKitUserActionsPredicate: UIKitRUMUserActionsPredicate? = nil,
+        rumLongTaskDurationThreshold: TimeInterval? = nil,
         rumResourceAttributesProvider: URLSessionRUMAttributesProvider? = nil,
         rumBackgroundEventTrackingEnabled: Bool = false,
         batchSize: BatchSize = .medium,
@@ -80,6 +81,7 @@ extension Datadog.Configuration {
             rumSessionsSamplingRate: rumSessionsSamplingRate,
             rumUIKitViewsPredicate: rumUIKitViewsPredicate,
             rumUIKitUserActionsPredicate: rumUIKitUserActionsPredicate,
+            rumLongTaskDurationThreshold: rumLongTaskDurationThreshold,
             rumResourceAttributesProvider: rumResourceAttributesProvider,
             rumBackgroundEventTrackingEnabled: rumBackgroundEventTrackingEnabled,
             batchSize: batchSize,
@@ -174,6 +176,7 @@ extension FeaturesConfiguration.Common {
         environment: String = .mockAny(),
         performance: PerformancePreset = .init(batchSize: .medium, uploadFrequency: .average, bundleType: .iOSApp),
         source: String = .mockAny(),
+        sdkVersion: String = .mockAny(),
         proxyConfiguration: [AnyHashable: Any]? = nil
     ) -> Self {
         return .init(
@@ -184,6 +187,7 @@ extension FeaturesConfiguration.Common {
             environment: environment,
             performance: performance,
             source: source,
+            sdkVersion: sdkVersion,
             proxyConfiguration: proxyConfiguration
         )
     }
@@ -239,7 +243,7 @@ extension FeaturesConfiguration.RUM {
         actionEventMapper: RUMActionEventMapper? = nil,
         errorEventMapper: RUMErrorEventMapper? = nil,
         longTaskEventMapper: RUMLongTaskEventMapper? = nil,
-        autoInstrumentation: FeaturesConfiguration.RUM.AutoInstrumentation? = nil,
+        instrumentation: FeaturesConfiguration.RUM.Instrumentation? = nil,
         backgroundEventTrackingEnabled: Bool = false,
         onSessionStart: @escaping RUMSessionListener = mockNoOpSessionListerner()
     ) -> Self {
@@ -254,7 +258,7 @@ extension FeaturesConfiguration.RUM {
             actionEventMapper: actionEventMapper,
             errorEventMapper: errorEventMapper,
             longTaskEventMapper: longTaskEventMapper,
-            autoInstrumentation: autoInstrumentation,
+            instrumentation: instrumentation,
             backgroundEventTrackingEnabled: backgroundEventTrackingEnabled,
             onSessionStart: onSessionStart
         )
@@ -326,13 +330,15 @@ extension AppContext {
         bundleType: BundleType = .iOSApp,
         bundleIdentifier: String? = .mockAny(),
         bundleVersion: String? = .mockAny(),
-        bundleName: String? = .mockAny()
+        bundleName: String? = .mockAny(),
+        processInfo: ProcessInfo = ProcessInfoMock()
     ) -> AppContext {
         return AppContext(
             bundleType: bundleType,
             bundleIdentifier: bundleIdentifier,
             bundleVersion: bundleVersion,
-            bundleName: bundleName
+            bundleName: bundleName,
+            processInfo: processInfo
         )
     }
 }
@@ -646,7 +652,7 @@ class DateCorrectorMock: DateCorrectorType {
 }
 
 struct LaunchTimeProviderMock: LaunchTimeProviderType {
-    var launchTime: TimeInterval? = nil
+    var launchTime: TimeInterval = 0
 }
 
 extension UserInfo: AnyMockable, RandomMockable {
@@ -703,14 +709,14 @@ extension RequestBuilder.HTTPHeader: RandomMockable, AnyMockable {
             .userAgentHeader(appName: .mockRandom(among: .alphanumerics), appVersion: .alphanumerics, device: .mockAny()),
             .ddAPIKeyHeader(clientToken: .mockRandom(among: .alphanumerics)),
             .ddEVPOriginHeader(source: .mockRandom(among: .alphanumerics)),
-            .ddEVPOriginVersionHeader(),
+            .ddEVPOriginVersionHeader(sdkVersion: .mockRandom(among: .alphanumerics)),
             .ddRequestIDHeader()
         ]
         return all.randomElement()!
     }
 
     static func mockAny() -> RequestBuilder.HTTPHeader {
-        return .ddEVPOriginVersionHeader()
+        return .ddEVPOriginVersionHeader(sdkVersion: "1.2.3")
     }
 }
 

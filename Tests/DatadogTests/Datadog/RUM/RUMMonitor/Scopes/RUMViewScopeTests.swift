@@ -584,12 +584,44 @@ class RUMViewScopeTests: XCTestCase {
         XCTAssertEqual(error.model.error.type, "abc")
         XCTAssertEqual(error.model.error.message, "view error")
         XCTAssertEqual(error.model.error.source, .source)
+        XCTAssertEqual(error.model.error.sourceType, .ios)
         XCTAssertNil(error.model.error.stack)
         XCTAssertNil(error.model.error.isCrash)
         XCTAssertNil(error.model.error.resource)
         XCTAssertNil(error.model.action)
         XCTAssertEqual(error.model.context?.contextInfo as? [String: String], ["foo": "bar"])
         XCTAssertEqual(error.model.dd.session?.plan, .plan1, "All RUM events should use RUM Lite plan")
+
+        let viewUpdate = try XCTUnwrap(output.recordedEvents(ofType: RUMEvent<RUMViewEvent>.self).last)
+        XCTAssertEqual(viewUpdate.model.view.error.count, 1)
+    }
+
+    func testGivenStartedView_whenCrossPlatformErrorIsAdded_itSendsCorrectErrorEvent() throws {
+        var currentTime: Date = .mockDecember15th2019At10AMUTC()
+
+        let scope: RUMViewScope = .mockWith(parent: parent, dependencies: dependencies)
+
+        XCTAssertTrue(
+            scope.process(command: RUMStartViewCommand.mockAny())
+        )
+
+        currentTime.addTimeInterval(1)
+
+        XCTAssertTrue(
+            scope.process(
+                command: RUMAddCurrentViewErrorCommand.mockWithErrorMessage(
+                    attributes: [
+                        CrossPlatformAttributes.errorSourceType: "react-native",
+                        CrossPlatformAttributes.errorIsCrash: true
+                    ]
+                )
+            )
+        )
+
+        let error = try XCTUnwrap(output.recordedEvents(ofType: RUMEvent<RUMErrorEvent>.self).last)
+
+        XCTAssertEqual(error.model.error.sourceType, .reactNative)
+        XCTAssertTrue(error.model.error.isCrash ?? false)
 
         let viewUpdate = try XCTUnwrap(output.recordedEvents(ofType: RUMEvent<RUMViewEvent>.self).last)
         XCTAssertEqual(viewUpdate.model.view.error.count, 1)

@@ -132,7 +132,8 @@ workflows:
         - scheme: Datadog
         - simulator_device: iPhone 11
         - is_clean_build: 'yes'
-        - should_retry_test_on_fail: 'yes' # temporarily mutes flakiness until we collect more info (in RUMM-839) then fix it
+        - test_repetition_mode: 'retry_on_failure'
+        - maximum_test_repetitions: 2
         - generate_code_coverage_files: 'yes'
         - project_path: Datadog.xcworkspace
         - xcpretty_test_options: --color --report html --output "${BITRISE_DEPLOY_DIR}/Datadog-unit-tests.html"
@@ -181,7 +182,7 @@ workflows:
         - is_clean_build: 'no'
         - generate_code_coverage_files: 'yes'
         - project_path: Datadog.xcworkspace
-        - xcodebuild_test_options: -testPlan DatadogIntegrationTests
+        - xcodebuild_options: -testPlan DatadogIntegrationTests
         - xcpretty_test_options: --color --report html --output "${BITRISE_DEPLOY_DIR}/DatadogIntegration-tests.html"
     - xcode-test:
         title: Run integration tests for Crash Reporting (on iOS Simulator)
@@ -192,7 +193,7 @@ workflows:
         - is_clean_build: 'no'
         - generate_code_coverage_files: 'yes'
         - project_path: Datadog.xcworkspace
-        - xcodebuild_test_options: -testPlan DatadogCrashReportingIntegrationTests
+        - xcodebuild_options: -testPlan DatadogCrashReportingIntegrationTests
         - xcpretty_test_options: --color --report html --output "${BITRISE_DEPLOY_DIR}/DatadogCrashReportingIntegration-tests.html"
 
   check_dependency_managers:
