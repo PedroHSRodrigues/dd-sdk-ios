@@ -16,7 +16,7 @@ internal extension Bundle {
         return bundleURL.lastPathComponent == "SwiftUI.framework"
     }
 }
-
+/*
 #if canImport(SwiftUI)
 @available(iOS 13, *)
 internal extension SwiftUI.View {
@@ -26,3 +26,4 @@ internal extension SwiftUI.View {
     }
 }
 #endif
+*/
